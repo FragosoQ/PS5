@@ -958,10 +958,6 @@ footer {
 
       <!-- EVOLUÇÃO -->
       <div class="globe-section" style="flex-direction:column;gap:clamp(6px,1vh,10px);position:relative;">
-        <div class="h-priority h-priority-left" id="prioridadeAtiva">
-          <span class="h-priority-label">Prioridade Ativa</span>
-          <span class="h-priority-value" id="prioridadeAtivaValue">—</span>
-        </div>
         <div style="margin-top:auto;font-size:clamp(14px,1.8vh,20px);font-weight:700;letter-spacing:5px;text-transform:uppercase;color:rgba(255,255,255,0.75);">Evolução Global</div>
         <div id="evNum" style="font-family:'Bebas Neue',sans-serif;font-size:clamp(140px,22vh,340px);line-height:.85;letter-spacing:-2px;">46%</div>
         <div id="statusLabel" style="font-size:clamp(15px,2vh,22px);letter-spacing:4px;color:rgba(255,255,255,0.75);text-transform:uppercase;">Em Curso · ON</div>
@@ -2565,33 +2561,35 @@ function renderSheetData(sheetRow) {
   if (!sheetRow) return;
 
   // Modelo, Lote e datas vêm do PS5 (refreshPs5Details)
-  // Evolução Global vem do PS5!AK (refreshPs5Fields)
+  // Evolução Global vem do PS5!N (refreshPs5Fields)
   // Países vêm de montagemEditável (refrescados pelo seu próprio watcher — ver loadAndRenderPaises)
   refreshPs5Details();
   refreshPs5Fields();
   renderZones(sheetRow);
 }
 
-function getPs5ActivePriorityPercentage(table, row, activePriority) {
-  const priorityNumber = Number(String(activePriority == null ? '' : activePriority).trim());
-  if (!Number.isInteger(priorityNumber) || priorityNumber < 1) return null;
-
+function getPs5ActivePriority(table, row) {
+  if (!table || !Array.isArray(table.cols) || !row) return { prioridadeAtiva: null, prioridadeAtivaPct: null };
   const startIndex = columnLetterToIndex('AL');
-  const endIndex = columnLetterToIndex('CE');
-  const targetHeader = normalizeString(`P${priorityNumber}`);
-  for (let index = startIndex; index <= endIndex && index + 1 < table.cols.length; index += 1) {
-    const header = normalizeString(table.cols[index].label || table.cols[index].id || '');
-    if (header !== targetHeader) continue;
-
+  const endIndex = columnLetterToIndex('CK');
+  for (let index = startIndex; index < endIndex && index + 1 < table.cols.length; index += 2) {
+    const priorityHeader = String(table.cols[index].label || table.cols[index].id || '').trim();
     const percentageHeader = normalizeString(table.cols[index + 1].label || table.cols[index + 1].id || '');
-    if (percentageHeader !== '%') return null;
+    if (!priorityHeader || percentageHeader !== '%') continue;
+
+    const priorityValue = getValueFromRow(row, index);
+    if (String(priorityValue == null ? '' : priorityValue).trim() !== '5') continue;
 
     const rawPercentage = getValueFromRow(row, index + 1);
-    if (rawPercentage == null || String(rawPercentage).trim() === '') return null;
+    if (rawPercentage == null || String(rawPercentage).trim() === '') continue;
     const percentage = parseSheetPercentage(rawPercentage);
-    return percentage != null && percentage !== 100 ? percentage : null;
+    if (percentage === 100) continue;
+    return {
+      prioridadeAtiva: priorityHeader,
+      prioridadeAtivaPct: percentage == null ? 0 : percentage,
+    };
   }
-  return null;
+  return { prioridadeAtiva: null, prioridadeAtivaPct: null };
 }
 
 async function fetchPs5Summary() {
@@ -2601,51 +2599,45 @@ async function fetchPs5Summary() {
     const index = findSheetCell(table, header, column);
     return index >= 0 ? getValueFromRow(row, index) : null;
   };
-  const prioridadeAtiva = readValue('Posto5', 'CM');
+  const activePriority = getPs5ActivePriority(table, row);
   return {
-    prioridadeAtiva,
-    prioridadeAtivaPct: getPs5ActivePriorityPercentage(table, row, prioridadeAtiva),
-    geral: readValue('GERAL', 'AK'),
+    ...activePriority,
+    geral: readValue('GERAL(T)', 'N'),
   };
 }
 
 // Faixa "Prioridade em Curso": % de realização da prioridade ativa.
-// Fica escondida quando não há prioridade ativa ou % disponível.
+// Fica escondida apenas quando não há prioridade ativa.
 function updatePrioridadeEmCurso(prioridade, pct) {
   const box = document.getElementById('prioCurso');
   if (!box) return;
-  const visible = Boolean(prioridade) && pct != null;
+  const visible = Boolean(prioridade);
   box.hidden = !visible;
   if (!visible) return;
-  document.getElementById('prioCursoName').textContent = /^\d+$/.test(prioridade) ? `P${prioridade}` : prioridade;
-  document.getElementById('prioCursoPct').textContent = pct;
-  document.getElementById('prioCursoBar').style.width = `${Math.max(0, Math.min(100, pct))}%`;
+  const priorityLabel = String(prioridade).trim();
+  const displayPriority = /^P/i.test(priorityLabel) ? priorityLabel : `P${priorityLabel}`;
+  const percentage = pct == null ? 0 : pct;
+  document.getElementById('prioCursoName').textContent = displayPriority;
+  document.getElementById('prioCursoPct').textContent = percentage;
+  document.getElementById('prioCursoBar').style.width = `${Math.max(0, Math.min(100, percentage))}%`;
 }
 
 function refreshPs5Fields() {
   return fetchPs5Summary().then(({ prioridadeAtiva, prioridadeAtivaPct, geral }) => {
-    const ativaBox = document.getElementById('prioridadeAtiva');
-    const ativaValueEl = document.getElementById('prioridadeAtivaValue');
     const prioridade = prioridadeAtiva != null && String(prioridadeAtiva).trim() !== ''
       ? String(prioridadeAtiva).trim()
       : null;
-    if (ativaValueEl) ativaValueEl.textContent = prioridade || '—';
-    if (ativaBox) ativaBox.classList.toggle('is-empty', !prioridade);
     updatePrioridadeEmCurso(prioridade, prioridadeAtivaPct);
 
     const geralPct = parseSheetPercentage(geral);
     if (geralPct == null) {
-      console.warn('[evolução] valor de GERAL (PS5!AK2) não parseável:', geral);
+      console.warn('[evolução] valor de GERAL(T) (PS5!N2) não parseável:', geral);
     } else {
-      console.log('[evolução] GERAL (PS5!AK2) =', geral, '→', geralPct, '%');
+      console.log('[evolução] GERAL(T) (PS5!N2) =', geral, '→', geralPct, '%');
     }
     updateEvolucao(geralPct != null ? geralPct : 0);
   }).catch(err => {
     console.warn('Falha a carregar prioridade ativa/evolução do PS5:', err);
-    const ativaBox = document.getElementById('prioridadeAtiva');
-    const ativaValueEl = document.getElementById('prioridadeAtivaValue');
-    if (ativaValueEl) ativaValueEl.textContent = '—';
-    if (ativaBox) ativaBox.classList.add('is-empty');
     updatePrioridadeEmCurso(null, null);
     updateEvolucao(0);
   });
