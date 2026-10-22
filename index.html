@@ -1034,6 +1034,7 @@ footer {
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="ps5-priority-progress.js"></script>
 <script>
 const SHEET_CONFIG_DEFAULT = {
   id: '1GQUB52a2gKR429bjqJrNkbP5rjR7Z_4v85z9M7_Cr8Y',
@@ -2598,7 +2599,9 @@ function renderSheetData(sheetRow) {
 }
 
 function getPs5ActivePriority(table, row) {
-  if (!table || !Array.isArray(table.cols) || !row) return { prioridadeAtiva: null, prioridadeAtivaPct: null };
+  if (!table || !Array.isArray(table.cols) || !row) {
+    return { prioridadeAtiva: null, prioridadeAtivaConclusao: null };
+  }
   const startIndex = columnLetterToIndex('AL');
   const endIndex = columnLetterToIndex('CK');
   for (let index = startIndex; index < endIndex && index + 1 < table.cols.length; index += 2) {
@@ -2610,15 +2613,12 @@ function getPs5ActivePriority(table, row) {
     if (String(priorityValue == null ? '' : priorityValue).trim() !== '5') continue;
 
     const rawPercentage = getValueFromRow(row, index + 1);
-    if (rawPercentage == null || String(rawPercentage).trim() === '') continue;
-    const percentage = parseSheetPercentage(rawPercentage);
-    if (percentage === 100) continue;
     return {
       prioridadeAtiva: priorityHeader,
-      prioridadeAtivaPct: percentage == null ? 0 : percentage,
+      prioridadeAtivaConclusao: rawPercentage,
     };
   }
-  return { prioridadeAtiva: null, prioridadeAtivaPct: null };
+  return { prioridadeAtiva: null, prioridadeAtivaConclusao: null };
 }
 
 async function fetchPs5Summary() {
@@ -2631,6 +2631,12 @@ async function fetchPs5Summary() {
   const activePriority = getPs5ActivePriority(table, row);
   return {
     ...activePriority,
+    prioridadeAtivaPct: PS5PriorityProgress.calculateProgress(
+      table,
+      row,
+      activePriority.prioridadeAtiva,
+      activePriority.prioridadeAtivaConclusao
+    ),
     geral: readValue('GERAL(T)', 'N'),
   };
 }
@@ -2647,7 +2653,7 @@ function updatePrioridadeEmCurso(prioridade, pct) {
   const displayPriority = /^P/i.test(priorityLabel) ? priorityLabel : `P${priorityLabel}`;
   const percentage = pct == null ? 0 : pct;
   document.getElementById('prioCursoName').textContent = displayPriority;
-  document.getElementById('prioCursoPct').textContent = percentage;
+  document.getElementById('prioCursoPct').textContent = Number(percentage).toFixed(1).replace('.', ',');
   document.getElementById('prioCursoBar').style.width = `${Math.max(0, Math.min(100, percentage))}%`;
 }
 
