@@ -1975,12 +1975,10 @@ const ZONA_CONFIGS = [
     listSource: {
       tab: 'PS5',
       mode: 'row-headers',
-      startColumn: 'AL',
-      endColumn: 'CE',
-      percentLabel: '%',
+      range: 'CU1:DT2',
+      matchValue: 5,
       hideHeader: true,
       gridLayout: { cols: 4, rows: 3, flow: 'column' },
-      limit: 12,
     },
   },
   { nome: 'Envolventes', tab: 'PS1', header: 'Envolventes', column: 'R' },
@@ -2136,6 +2134,7 @@ async function fetchZonaListValues(source) {
   const cfg = {
     id: SHEET_CONFIG_DEFAULT.id,
     tab: source.tab,
+    range: source.range,
   };
   const table = await fetchSheetTable(cfg);
 
@@ -2143,6 +2142,32 @@ async function fetchZonaListValues(source) {
     if (!table || !Array.isArray(table.cols) || !Array.isArray(table.rows) || !table.rows[0]) {
       return [];
     }
+    if (source.range) {
+      const headerRow = table.rows[0];
+      const valueRow = table.rows[1];
+      if (!headerRow || !valueRow) return [];
+
+      const limit = Math.max(1, source.limit || 50);
+      const matchValue = Number(source.matchValue);
+      const values = [];
+      const columnCount = Math.min(
+        headerRow.c ? headerRow.c.length : 0,
+        valueRow.c ? valueRow.c.length : 0
+      );
+      for (let i = 0; i < columnCount && values.length < limit; i += 1) {
+        const header = getValueFromRow(headerRow, i);
+        const value = getValueFromRow(valueRow, i);
+        const numericValue = typeof value === 'number'
+          ? value
+          : Number(String(value == null ? '' : value).trim().replace(',', '.'));
+        const label = header == null ? '' : String(header).trim().replace(/\./g, '_');
+        if (label && Number.isFinite(numericValue) && numericValue === matchValue) {
+          values.push(label);
+        }
+      }
+      return values;
+    }
+
     const startIdx = columnLetterToIndex(source.startColumn);
     const endIdx = columnLetterToIndex(source.endColumn);
     if (startIdx < 0 || endIdx < 0 || endIdx < startIdx) {
