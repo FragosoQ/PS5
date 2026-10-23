@@ -2644,6 +2644,7 @@ function getPs5ActivePriority(table, row) {
     if (String(priorityValue == null ? '' : priorityValue).trim() !== '5') continue;
 
     const rawPercentage = getValueFromRow(row, index + 1);
+    if (PS5PriorityProgress.isExactlyComplete(rawPercentage)) continue;
     return {
       prioridadeAtiva: priorityHeader,
       prioridadeAtivaConclusao: rawPercentage,
