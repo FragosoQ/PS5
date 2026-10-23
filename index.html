@@ -1976,6 +1976,11 @@ const ZONA_CONFIGS = [
       tab: 'PS5',
       mode: 'row-headers',
       range: 'CU1:DT2',
+      headers: [
+        'PR0.1', 'PR0.2', 'PR0.3', 'PR1', 'PR2', 'PR3', 'PR4', 'PR5', 'PR6',
+        'PR7.1', 'PR7.2', 'PR8', 'PR9', 'PR10', 'PR11.1', 'PR11.2', 'PR11.3',
+        'PR12.1', 'PR12.2', 'PR12.3', 'PR13.1', 'PR13.2', 'PR13.3', 'PR14', 'PR15', 'PR16',
+      ],
       matchValue: 5,
       hideHeader: true,
       gridLayout: { cols: 4, rows: 3, flow: 'column' },
@@ -2126,10 +2131,8 @@ async function fetchSecondaryRowsRange(tab, columns, startRow, endRow) {
 // Vai buscar valores de uma coluna do separador `tab` para alimentar um card-lista.
 //
 // Modo "column" (default): lê primeiras N linhas da coluna `column` (ou pelo `header`).
-// Modo "row-headers": lê os labels do cabeçalho (linha 1) das colunas entre
-// `startColumn` e `endColumn`, e devolve só aqueles cuja célula da linha 2
-// não está vazia. Com `percentLabel`, devolve o cabeçalho à esquerda quando
-// essa coluna percentual da linha 2 está a 100%.
+// Modo "row-headers": lê os cabeçalhos da linha 1 e devolve apenas aqueles
+// cujos valores na linha 2 correspondem a `matchValue`.
 async function fetchZonaListValues(source) {
   const cfg = {
     id: SHEET_CONFIG_DEFAULT.id,
@@ -2160,7 +2163,10 @@ async function fetchZonaListValues(source) {
         const numericValue = typeof value === 'number'
           ? value
           : Number(String(value == null ? '' : value).trim().replace(',', '.'));
-        const label = header == null ? '' : String(header).trim().replace(/\./g, '_');
+        const rawLabel = header == null || String(header).trim() === ''
+          ? (source.headers || [])[i]
+          : header;
+        const label = rawLabel == null ? '' : String(rawLabel).trim().replace(/\./g, '_');
         if (label && Number.isFinite(numericValue) && numericValue === matchValue) {
           values.push(label);
         }
@@ -2337,7 +2343,7 @@ function renderZones(rowData) {
     if (config.type === 'list') {
       const src = config.listSource || {};
       const cacheKey = src.mode === 'row-headers'
-        ? `list|${src.tab}|rowheaders|${src.startColumn}-${src.endColumn}`
+        ? `list|${src.tab}|rowheaders|${src.range || [src.startColumn, src.endColumn].join('-')}|match:${src.matchValue}|headers:${JSON.stringify(src.headers || [])}`
         : `list|${src.tab}|${src.column || src.header}`;
       const cached = ZONA_LIST_CACHE[cacheKey];
       const card = buildZonaListCard(config, cached);
