@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
-const { calculateProgress } = require('../ps5-priority-progress.js');
+const { calculateProgress, parsePercentage } = require('../ps5-priority-progress.js');
 
 function makeTable(priority, start, duration, startHeader = `T${priority}`, durationHeader = `TP${priority}`) {
   return {
@@ -129,4 +129,11 @@ test('only an exact 100% completion flag grants the sixth part', () => {
   assert.equal(calculateProgress(table, table.rows[0], 'P0_1', 100), 100);
   assert.equal(calculateProgress(table, table.rows[0], 'P0_1', '100%'), 100);
   assert.equal(calculateProgress(table, table.rows[0], 'P0_1', 0.9999, new Date()), 0);
+});
+
+test('parses the sheet percentage value without losing decimal precision', () => {
+  assert.equal(parsePercentage(0.256), 25.6);
+  assert.equal(parsePercentage('25,6%'), 25.6);
+  assert.equal(parsePercentage('25,6'), 25.6);
+  assert.equal(parsePercentage(null), null);
 });

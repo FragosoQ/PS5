@@ -2661,14 +2661,19 @@ async function fetchPs5Summary() {
     return index >= 0 ? getValueFromRow(row, index) : null;
   };
   const activePriority = getPs5ActivePriority(table, row);
+  const prioridadeAtivaPct = PS5PriorityProgress.parsePercentage(
+    activePriority.prioridadeAtivaConclusao
+  );
   return {
     ...activePriority,
-    prioridadeAtivaPct: PS5PriorityProgress.calculateProgress(
-      table,
-      row,
-      activePriority.prioridadeAtiva,
-      activePriority.prioridadeAtivaConclusao
-    ),
+    prioridadeAtivaPct: prioridadeAtivaPct == null
+      ? PS5PriorityProgress.calculateProgress(
+        table,
+        row,
+        activePriority.prioridadeAtiva,
+        activePriority.prioridadeAtivaConclusao
+      )
+      : prioridadeAtivaPct,
     geral: readValue('GERAL(T)', 'N'),
   };
 }

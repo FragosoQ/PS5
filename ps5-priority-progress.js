@@ -126,6 +126,15 @@
     return (hasPercent || Math.abs(numeric) > 1 ? numeric : numeric * 100) === 100;
   }
 
+  function parsePercentage(value) {
+    if (value == null || String(value).trim() === '') return null;
+    const text = String(value).trim();
+    const hasPercent = text.endsWith('%');
+    const numeric = Number(text.replace(/%$/, '').replace(',', '.'));
+    if (!Number.isFinite(numeric)) return null;
+    return hasPercent || Math.abs(numeric) > 1 ? numeric : numeric * 100;
+  }
+
   function getWorkingSecondsBetween(start, end) {
     if (end <= start) return 0;
     let totalSeconds = 0;
@@ -170,7 +179,7 @@
     return Math.round(completedParts * (100 / 6) * 10) / 10;
   }
 
-  const api = { calculateProgress, getWorkingSecondsBetween, isExactlyComplete };
+  const api = { calculateProgress, getWorkingSecondsBetween, isExactlyComplete, parsePercentage };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.PS5PriorityProgress = api;
 })(typeof window !== 'undefined' ? window : globalThis);
